@@ -1,0 +1,17 @@
+{
+  "name": "studi-lingua",
+  "version": "0.5.0",
+  "private": true,
+  "description": "Lin-Lingua — флеш-карточки с AI-агентом для рабочего общения",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js"
+  },
+  "dependencies": {
+    "dotenv": "^16.4.5",
+    "express": "^4.21.2"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

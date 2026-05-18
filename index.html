@@ -1,0 +1,367 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Lin-Lingua — флеш-карточки</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&family=Noto+Sans+JP:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body class="ll">
+  <header class="ll-hd">
+    <div class="ll-hd__brand">
+      <span class="ll-hd__sigil">▎</span>
+      <span class="ll-hd__name">lin<b>-</b>lingua</span>
+      <span class="ll-hd__ver">v0.4 · ru-fl</span>
+    </div>
+    <div class="ll-hd__stats">
+      <span class="ll-stat ll-stat--ok">
+        <span class="ll-stat__v" id="stat-correct">0</span>
+        <span class="ll-stat__l">верно</span>
+      </span>
+      <span class="ll-stat ll-stat--err">
+        <span class="ll-stat__v" id="stat-wrong">0</span>
+        <span class="ll-stat__l">ошибок</span>
+      </span>
+      <span class="ll-stat ll-stat--d">
+        <span class="ll-stat__v" id="stat-due">0</span>
+        <span class="ll-stat__l">в очереди</span>
+      </span>
+      <span class="ll-hd__prog">
+        <span class="ll-progress" aria-hidden="true"><span class="ll-progress__fill" id="progress-fill"></span></span>
+        <span class="ll-hd__progtxt" id="stat-progress">0 / 0</span>
+      </span>
+    </div>
+  </header>
+
+  <main class="ll-main">
+    <div class="ll-grid ll-grid--split">
+      <div class="ll-col ll-col--card">
+        <section class="ll-frame" id="card">
+          <header class="ll-frame__hd">
+            <span class="ll-frame__lbl" id="card-cat"></span>
+            <span class="ll-frame__r ll-card__hd-right">
+              <span class="ll-card__tools">
+                <button type="button" id="btn-speak" class="ll-icbtn" title="Озвучить (Alt+S)" aria-label="Озвучить">
+                  <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.25" stroke-linecap="square" stroke-linejoin="miter">
+                    <path d="M3 6v4h3l4 3V3L6 6H3z"/>
+                    <path d="M12 5c1.2 1 1.8 2 1.8 3s-.6 2-1.8 3"/>
+                  </svg>
+                </button>
+                <button type="button" id="btn-kana" class="ll-icbtn" title="Кана-клавиатура" aria-label="Кана-клавиатура" hidden>
+                  <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.25" stroke-linecap="square" stroke-linejoin="miter">
+                    <rect x="2" y="3" width="12" height="10"/>
+                    <path d="M5 7h2M9 7h2M5 10h2M9 10h2"/>
+                  </svg>
+                </button>
+              </span>
+            </span>
+          </header>
+
+          <div class="ll-frame__body ll-card">
+            <div class="ll-promptwrap" id="prompt-wrap">
+              <span class="ll-prompt" id="card-prompt">—</span>
+              <div class="ll-hint" id="card-hint"></div>
+            </div>
+
+            <form class="ll-inputwrap" id="card-form" autocomplete="off">
+              <span class="ll-inputlbl">ваш ответ</span>
+              <div class="ll-inputrow">
+                <input
+                  type="text"
+                  id="answer-input"
+                  class="ll-input"
+                  placeholder="Введите перевод"
+                  autocomplete="off"
+                  autocapitalize="off"
+                  autocorrect="off"
+                  spellcheck="false"
+                >
+              </div>
+            </form>
+
+            <div class="ll-feedback card-feedback" id="card-feedback"></div>
+
+            <div class="ll-actions">
+              <button type="submit" form="card-form" id="btn-check" class="ll-btn ll-btn--primary">
+                <span id="btn-check-label">Проверить</span>
+                <kbd>↵</kbd>
+              </button>
+              <button type="button" id="btn-reveal" class="ll-btn">
+                <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.25" stroke-linecap="square" stroke-linejoin="miter">
+                  <path d="M1 8s2.5-5 7-5 7 5 7 5-2.5 5-7 5-7-5-7-5z"/>
+                  <circle cx="8" cy="8" r="2"/>
+                </svg>
+                <span>Ответ</span>
+                <kbd>⌘⇧</kbd>
+              </button>
+              <button type="button" id="btn-skip" class="ll-btn">
+                <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.25" stroke-linecap="square" stroke-linejoin="miter">
+                  <path d="M2 4l6 4-6 4V4zM10 4v8"/>
+                </svg>
+                <span>Пропустить</span>
+              </button>
+            </div>
+          </div>
+        </section>
+
+        <section class="ll-frame" id="kana-panel" hidden>
+          <header class="ll-frame__hd">
+            <span class="ll-frame__lbl">кана-клавиатура</span>
+            <span class="ll-frame__r ll-kana__hdr">
+              <button type="button" class="ll-tab kana-tab active" data-set="hiragana">хирагана</button>
+              <button type="button" class="ll-tab kana-tab" data-set="katakana">катакана</button>
+              <button type="button" class="ll-icbtn ll-kana__action" id="kana-bs" title="Стереть">⌫</button>
+              <button type="button" class="ll-icbtn ll-kana__action" id="kana-clear" title="Очистить">✕</button>
+            </span>
+          </header>
+          <div class="ll-frame__body">
+            <div id="kana-grid" class="kana-grid"></div>
+          </div>
+        </section>
+
+        <!-- ===== AI-практика: пикер сценария ===== -->
+        <section class="ll-frame" id="chat-picker" hidden>
+          <header class="ll-frame__hd">
+            <span class="ll-frame__lbl">AI · выбери сценарий</span>
+            <span class="ll-frame__r" id="chat-status"></span>
+          </header>
+          <div class="ll-frame__body">
+            <div class="ll-row">
+              <span class="ll-row__lbl">режим общения</span>
+              <div class="ll-seg" role="radiogroup" aria-label="Режим общения">
+                <label class="ll-seg__b">
+                  <input type="radio" name="ai-mode" value="interactive" checked>
+                  <span class="ll-seg__name">Интерактивный</span>
+                  <span class="ll-seg__code" title="Исправления сразу">сразу</span>
+                </label>
+                <label class="ll-seg__b">
+                  <input type="radio" name="ai-mode" value="production">
+                  <span class="ll-seg__name">Продакшн</span>
+                  <span class="ll-seg__code" title="Разбор в конце">в конце</span>
+                </label>
+              </div>
+            </div>
+            <div class="ll-row">
+              <span class="ll-row__lbl">сценарий</span>
+              <div id="chat-scenarios" class="ll-scenarios"></div>
+            </div>
+          </div>
+        </section>
+
+        <!-- ===== AI-практика: чат ===== -->
+        <section class="ll-frame" id="chat-panel" hidden>
+          <header class="ll-frame__hd">
+            <span class="ll-frame__lbl" id="chat-title">AI · сценарий</span>
+            <span class="ll-frame__r ll-chat__hd">
+              <span class="ll-chat__modetag" id="chat-modetag"></span>
+              <button type="button" id="chat-end" class="ll-btn ll-btn--sm">
+                <span>Завершить</span>
+              </button>
+            </span>
+          </header>
+          <div class="ll-frame__body ll-chat">
+            <div id="chat-messages" class="ll-chat__messages" aria-live="polite"></div>
+            <form id="chat-form" class="ll-chat__form" autocomplete="off">
+              <div class="ll-inputrow">
+                <input
+                  type="text"
+                  id="chat-input"
+                  class="ll-input"
+                  placeholder="Введите сообщение…"
+                  autocomplete="off"
+                  autocapitalize="off"
+                  autocorrect="off"
+                  spellcheck="false"
+                >
+                <button type="submit" id="chat-send" class="ll-btn ll-btn--primary">
+                  <span>Отправить</span>
+                  <kbd>↵</kbd>
+                </button>
+              </div>
+            </form>
+          </div>
+        </section>
+      </div>
+
+      <aside class="ll-col ll-col--ctrls ll-controls">
+        <section class="ll-frame">
+          <header class="ll-frame__hd">
+            <span class="ll-frame__lbl">режим</span>
+          </header>
+          <div class="ll-frame__body">
+            <div class="ll-seg" role="radiogroup" aria-label="Режим">
+              <label class="ll-seg__b">
+                <input type="radio" name="view" value="cards" checked>
+                <span class="ll-seg__code">▤</span>
+                <span class="ll-seg__name">Карточки</span>
+              </label>
+              <label class="ll-seg__b">
+                <input type="radio" name="view" value="ai">
+                <span class="ll-seg__code">⌘</span>
+                <span class="ll-seg__name">AI-практика</span>
+              </label>
+            </div>
+          </div>
+        </section>
+
+        <section class="ll-frame" id="session-frame">
+          <header class="ll-frame__hd">
+            <span class="ll-frame__lbl">сессия</span>
+          </header>
+          <div class="ll-frame__body">
+            <button type="button" id="btn-session" class="ll-btn ll-btn--big is-primary">
+              <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.25" stroke-linecap="square" stroke-linejoin="miter">
+                <path d="M4 3l9 5-9 5V3z"/>
+              </svg>
+              <span>Начать сессию</span>
+            </button>
+            <div id="session-info" class="session-info ll-progrow"></div>
+          </div>
+        </section>
+
+        <section class="ll-frame">
+          <header class="ll-frame__hd">
+            <span class="ll-frame__lbl">язык</span>
+            <span class="ll-frame__r">
+              <button type="button" class="ll-link" id="btn-help">
+                <svg viewBox="0 0 16 16" width="12" height="12" fill="none" stroke="currentColor" stroke-width="1.25" stroke-linecap="square" stroke-linejoin="miter">
+                  <circle cx="8" cy="8" r="6"/>
+                  <path d="M6.5 6.5a1.5 1.5 0 1 1 2.2 1.3c-.5.3-.7.7-.7 1.2v.5"/>
+                  <circle cx="8" cy="12" r=".5" fill="currentColor"/>
+                </svg>
+                справка
+              </button>
+            </span>
+          </header>
+          <div class="ll-frame__body">
+            <div class="ll-seg" role="radiogroup" aria-label="Язык">
+              <label class="ll-seg__b">
+                <input type="radio" name="lang" value="en" checked>
+                <span class="ll-seg__code">EN</span>
+                <span class="ll-seg__name">English</span>
+              </label>
+              <label class="ll-seg__b">
+                <input type="radio" name="lang" value="ja">
+                <span class="ll-seg__code">JA</span>
+                <span class="ll-seg__name">日本語</span>
+              </label>
+              <label class="ll-seg__b">
+                <input type="radio" name="lang" value="it">
+                <span class="ll-seg__code">IT</span>
+                <span class="ll-seg__name">Italiano</span>
+              </label>
+            </div>
+            <div class="ll-row">
+              <span class="ll-row__lbl">направление</span>
+              <div class="ll-seg ll-seg--sm" role="radiogroup" aria-label="Направление перевода">
+                <label class="ll-seg__b">
+                  <input type="radio" name="direction" value="ru-fl" checked>
+                  <span>RU → <span class="dir-fl-label">EN</span></span>
+                </label>
+                <label class="ll-seg__b">
+                  <input type="radio" name="direction" value="fl-ru">
+                  <span><span class="dir-fl-label">EN</span> → RU</span>
+                </label>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="ll-frame">
+          <header class="ll-frame__hd">
+            <span class="ll-frame__lbl">фильтры</span>
+          </header>
+          <div class="ll-frame__body">
+            <div class="ll-row">
+              <span class="ll-row__lbl">тип карточек</span>
+              <div id="type-filter" class="ll-chips cat-filter"></div>
+            </div>
+            <div class="ll-row">
+              <span class="ll-row__lbl">поведение</span>
+              <div class="ll-checks">
+                <label class="ll-check">
+                  <input type="checkbox" id="opt-srs" checked>
+                  <span class="ll-check__box"></span>
+                  <span>интервальное повторение (SRS)</span>
+                </label>
+                <label class="ll-check">
+                  <input type="checkbox" id="opt-shuffle" checked>
+                  <span class="ll-check__box"></span>
+                  <span>перемешивать (если SRS выкл.)</span>
+                </label>
+                <label class="ll-check">
+                  <input type="checkbox" id="opt-autospeak">
+                  <span class="ll-check__box"></span>
+                  <span>автоматически озвучивать</span>
+                </label>
+              </div>
+            </div>
+            <div class="ll-row">
+              <span class="ll-row__lbl">
+                категории
+                <span class="ll-row__sub">
+                  <button type="button" class="ll-link" id="cat-all">все</button>
+                  <span class="ll-row__dot">·</span>
+                  <button type="button" class="ll-link" id="cat-none">очистить</button>
+                </span>
+              </span>
+              <div id="cat-filter" class="ll-chips cat-filter"></div>
+            </div>
+          </div>
+        </section>
+
+        <section class="ll-frame ll-frame--dim">
+          <header class="ll-frame__hd">
+            <span class="ll-frame__lbl">опасная зона</span>
+          </header>
+          <div class="ll-frame__body">
+            <button type="button" id="btn-reset" class="ll-btn ll-btn--danger">
+              <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.25" stroke-linecap="square" stroke-linejoin="miter">
+                <path d="M3 8a5 5 0 1 0 1.5-3.5L3 6"/>
+                <path d="M3 3v3h3"/>
+              </svg>
+              <span>Сбросить прогресс</span>
+            </button>
+          </div>
+        </section>
+      </aside>
+    </div>
+  </main>
+
+  <footer class="ll-foot">
+    <span class="ll-foot__l">прогресс хранится локально · ничего не покидает вкладку</span>
+    <span class="ll-foot__r hotkeys">
+      <kbd>↵</kbd> проверить · <kbd>⌘⇧</kbd> ответ · <kbd>⌥S</kbd> озвучить
+    </span>
+  </footer>
+
+  <div id="help-overlay" class="ll-modal" hidden aria-hidden="true">
+    <div class="ll-modal__dlg">
+      <section class="ll-frame">
+        <header class="ll-frame__hd">
+          <span class="ll-frame__lbl" id="help-title">справка</span>
+          <span class="ll-frame__r">
+            <button type="button" id="help-close" class="ll-icbtn" aria-label="Закрыть">✕</button>
+          </span>
+        </header>
+        <div class="ll-frame__body">
+          <div id="help-body" class="ll-help"></div>
+        </div>
+      </section>
+    </div>
+  </div>
+
+  <script src="words.js"></script>
+  <script src="phrases.js"></script>
+  <script src="ja_words.js"></script>
+  <script src="ja_phrases.js"></script>
+  <script src="it_words.js"></script>
+  <script src="it_phrases.js"></script>
+  <script src="scenarios.js"></script>
+  <script src="app.js"></script>
+  <script src="chat.js"></script>
+</body>
+</html>
