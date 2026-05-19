@@ -264,12 +264,29 @@
     return wrap;
   }
 
+  function friendlyError(raw) {
+    const s = String(raw);
+    if (/502|Provider returned error|Internal error/i.test(s))
+      return "Модель временно недоступна — попробуй ещё раз через несколько секунд.";
+    if (/404|No endpoints found/i.test(s))
+      return "Модель недоступна. Обратись к администратору.";
+    if (/429|rate limit/i.test(s))
+      return "Слишком много запросов — подожди немного и попробуй снова.";
+    if (/401|403|unauthorized|forbidden/i.test(s))
+      return "Ошибка авторизации API.";
+    if (/500/i.test(s))
+      return "Ошибка сервера — попробуй ещё раз.";
+    if (/failed to fetch|network/i.test(s))
+      return "Нет связи с сервером. Проверь интернет.";
+    return "Не удалось получить ответ — попробуй ещё раз.";
+  }
+
   function appendError(text) {
     const wrap = document.createElement("div");
     wrap.className = "ll-msg ll-msg--system";
     const box = document.createElement("div");
     box.className = "ll-error";
-    box.textContent = "Ошибка: " + text;
+    box.textContent = friendlyError(text);
     wrap.appendChild(box);
     els.messages.appendChild(wrap);
     scrollToBottom();
