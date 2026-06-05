@@ -73,6 +73,8 @@
   function defaultState() {
     return {
       stats: {},                        // keyed by `${lang}::${type}::${primary}::${cat}`
+      marks: {},                        // keyed the same way — manual "to learn" list
+      markedMode: false,                // when true, deck = only marked cards
       sessionCorrect: 0,
       sessionWrong: 0,
       lang: "en",
@@ -176,6 +178,9 @@
     kanaTabs: document.querySelectorAll(".kana-tab"),
     kanaBs: document.getElementById("kana-bs"),
     kanaClear: document.getElementById("kana-clear"),
+    mark: document.getElementById("btn-mark"),
+    markedMode: document.getElementById("btn-marked-mode"),
+    markedCount: document.getElementById("marked-count"),
   };
 
   // ===== Mutable runtime =====
@@ -200,6 +205,20 @@
 
   // ===== Card key, normalization, accepted answers =====
   function cardKey(c) { return `${c.lang}::${c.type}::${c.primary}::${c.cat}`; }
+
+  // ===== Marks ("to learn" list) =====
+  function isMarked(c) { return !!(c && state.marks[cardKey(c)]); }
+  function toggleMark(c) {
+    if (!c) return;
+    const k = cardKey(c);
+    if (state.marks[k]) delete state.marks[k];
+    else state.marks[k] = true;
+    saveState();
+  }
+  function markedCount(lang) {
+    const prefix = lang ? lang + "::" : null;
+    return Object.keys(state.marks).filter(k => !prefix || k.startsWith(prefix)).length;
+  }
 
   function normalizeFL(s, lang) {
     s = s.toLowerCase().trim()
@@ -308,11 +327,18 @@
       return;
     }
 
-    const cats = activeCats();
-    const types = activeTypes();
-    const filtered = allCardsForLang.filter(c =>
-      cats.includes(c.cat) && types.includes(c.type)
-    );
+    let filtered;
+    if (state.markedMode) {
+      // Marked-only mode ignores cat/type filters by design — otherwise the
+      // user can accidentally hide their entire "to learn" list.
+      filtered = allCardsForLang.filter(c => isMarked(c));
+    } else {
+      const cats = activeCats();
+      const types = activeTypes();
+      filtered = allCardsForLang.filter(c =>
+        cats.includes(c.cat) && types.includes(c.type)
+      );
+    }
 
     if (state.srs) {
       const now = Date.now();
@@ -341,6 +367,18 @@
   function renderClozePromptHtml(card) {
     const blank = `<span class="blank">&nbsp;</span>`;
     return escapeHtml(card.primary).replace(/___+/, blank);
+  }
+
+  // Render the contextual examples block. Each `**…**` token is highlighted.
+  function renderExamples(card) {
+    if (!card.ex || !card.ex.length) return "";
+    const mark = s => s.replace(/\*\*([^*]+)\*\*/g, '<mark>$1</mark>');
+    const items = card.ex.map(ex => `
+      <li class="ll-example">
+        <div class="ll-example__en">${mark(escapeHtml(ex.en))}</div>
+        <div class="ll-example__ru">${mark(escapeHtml(ex.ru))}</div>
+      </li>`).join("");
+    return `<ul class="ll-examples">${items}</ul>`;
   }
 
   function getCurrentCard() {
@@ -417,9 +455,30 @@
 
     els.input.focus();
     updateStats();
+    refreshMarkUI();
 
     if (state.autoSpeak && (card.type === "cloze" || dir === "fl-ru")) {
       speak(speakText(card), card.lang);
+    }
+  }
+
+  function refreshMarkUI() {
+    const card = getCurrentCard();
+    const on = isMarked(card);
+    if (els.mark) {
+      els.mark.classList.toggle("is-on", on);
+      els.mark.setAttribute("aria-pressed", on ? "true" : "false");
+      els.mark.title = on
+        ? "Снять отметку (M)"
+        : "Отметить для повторения (M)";
+    }
+  }
+
+  function refreshMarkedModeUI() {
+    if (els.markedCount) els.markedCount.textContent = markedCount(state.lang);
+    if (els.markedMode) {
+      els.markedMode.classList.toggle("is-on", !!state.markedMode);
+      els.markedMode.setAttribute("aria-pressed", state.markedMode ? "true" : "false");
     }
   }
 
@@ -487,6 +546,7 @@
       els.feedback.className = "card-feedback err";
       els.feedback.innerHTML = `Не совсем. Правильно: <strong>${escapeHtml(answerHint(card, state.direction))}</strong>${tail}`;
     }
+    els.feedback.innerHTML += renderExamples(card);
 
     answered = true;
     setCheckLabel("Дальше →");
@@ -522,6 +582,7 @@
     } else if (state.srs) {
       els.feedback.innerHTML += `<span class="srs-info">Покажу снова через ${SRS_LABELS[stat.box]}</span>`;
     }
+    els.feedback.innerHTML += renderExamples(card);
     answered = true;
     setCheckLabel("Дальше →");
     saveState();
@@ -561,11 +622,16 @@
 
   // ===== Session =====
   function startSession() {
-    const cats = activeCats();
-    const types = activeTypes();
-    const filtered = allCardsForLang.filter(c =>
-      cats.includes(c.cat) && types.includes(c.type)
-    );
+    let filtered;
+    if (state.markedMode) {
+      filtered = allCardsForLang.filter(c => isMarked(c));
+    } else {
+      const cats = activeCats();
+      const types = activeTypes();
+      filtered = allCardsForLang.filter(c =>
+        cats.includes(c.cat) && types.includes(c.type)
+      );
+    }
     if (filtered.length === 0) {
       alert("Выберите хотя бы одну категорию и тип карточек.");
       return;
@@ -952,6 +1018,7 @@
     renderSessionUI();
     buildAllFilters();
     applyKanaVisibility();
+    refreshMarkedModeUI();
     rebuildDeck();
   }
 
@@ -977,11 +1044,39 @@
     if (card) speak(speakText(card), card.lang);
   });
 
+  els.mark.addEventListener("click", () => {
+    const card = getCurrentCard();
+    if (!card) return;
+    toggleMark(card);
+    refreshMarkUI();
+    refreshMarkedModeUI();
+    // If we just unmarked while in marked-only mode, the deck shrinks under us.
+    if (state.markedMode) rebuildDeck();
+  });
+
+  els.markedMode.addEventListener("click", () => {
+    state.markedMode = !state.markedMode;
+    saveState();
+    refreshMarkedModeUI();
+    rebuildDeck();
+  });
+
   document.addEventListener("keydown", e => {
     if (e.altKey && (e.key === "s" || e.key === "S" || e.key === "ы")) {
       e.preventDefault();
       const card = getCurrentCard();
       if (card) speak(speakText(card), card.lang);
+    }
+    // M — toggle mark on current card. Ignore when typing in the input.
+    if ((e.key === "m" || e.key === "M" || e.key === "ь") && !e.altKey && !e.metaKey && !e.ctrlKey) {
+      if (document.activeElement === els.input) return;
+      const card = getCurrentCard();
+      if (!card) return;
+      e.preventDefault();
+      toggleMark(card);
+      refreshMarkUI();
+      refreshMarkedModeUI();
+      if (state.markedMode) rebuildDeck();
     }
   });
 

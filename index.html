@@ -44,6 +44,11 @@
             <span class="ll-frame__lbl" id="card-cat"></span>
             <span class="ll-frame__r ll-card__hd-right">
               <span class="ll-card__tools">
+                <button type="button" id="btn-mark" class="ll-icbtn" title="Отметить для повторения (M)" aria-label="Отметить" aria-pressed="false">
+                  <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M8 1.6l2 4.1 4.5.7-3.3 3.2.8 4.5L8 12l-4 2.1.8-4.5L1.5 6.4 6 5.7z"/>
+                  </svg>
+                </button>
                 <button type="button" id="btn-speak" class="ll-icbtn" title="Озвучить (Alt+S)" aria-label="Озвучить">
                   <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.25" stroke-linecap="square" stroke-linejoin="miter">
                     <path d="M3 6v4h3l4 3V3L6 6H3z"/>
@@ -217,6 +222,13 @@
                 <path d="M4 3l9 5-9 5V3z"/>
               </svg>
               <span>Начать сессию</span>
+            </button>
+            <button type="button" id="btn-marked-mode" class="ll-btn ll-marked-toggle" aria-pressed="false">
+              <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M8 1.6l2 4.1 4.5.7-3.3 3.2.8 4.5L8 12l-4 2.1.8-4.5L1.5 6.4 6 5.7z"/>
+              </svg>
+              <span>Учить отмеченные</span>
+              <span class="ll-marked-count" id="marked-count">0</span>
             </button>
             <div id="session-info" class="session-info ll-progrow"></div>
           </div>

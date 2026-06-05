@@ -338,6 +338,77 @@ body.is-lang-ja .ll-input {
   margin-top: 6px;
 }
 
+/* contextual examples */
+.ll-examples {
+  list-style: none;
+  margin: 14px 0 0;
+  padding: 0;
+  display: flex; flex-direction: column; gap: 8px;
+}
+.ll-example {
+  padding: 10px 12px;
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-left: 2px solid var(--accent);
+  border-radius: var(--r-sm);
+  display: flex; flex-direction: column; gap: 4px;
+}
+.ll-example__en {
+  font: 500 var(--fz-sm)/1.45 var(--font);
+  color: var(--fg);
+}
+.ll-example__ru {
+  font: 400 var(--fz-xs)/1.4 var(--font);
+  color: var(--fg-2);
+}
+.ll-example mark {
+  background: var(--accent-soft);
+  color: var(--accent);
+  padding: 0 4px;
+  border-radius: 3px;
+  font-weight: 600;
+}
+
+/* Star (mark for later) — fills with accent when on */
+#btn-mark.is-on {
+  color: var(--accent);
+  background: var(--accent-soft);
+}
+#btn-mark.is-on svg {
+  fill: var(--accent);
+}
+
+/* Marked-mode toggle button + counter chip */
+.ll-marked-toggle {
+  width: 100%;
+  justify-content: flex-start;
+  padding: 10px 12px;
+  position: relative;
+}
+.ll-marked-toggle.is-on {
+  color: var(--accent);
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+.ll-marked-toggle.is-on svg {
+  fill: var(--accent);
+}
+.ll-marked-count {
+  margin-left: auto;
+  display: inline-flex; align-items: center; justify-content: center;
+  min-width: 22px; height: 20px;
+  padding: 0 7px;
+  border-radius: 999px;
+  background: var(--bg-2);
+  color: var(--fg-1);
+  font: 600 var(--fz-xs)/1 var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
+.ll-marked-toggle.is-on .ll-marked-count {
+  background: var(--accent);
+  color: var(--bg);
+}
+
 /* actions */
 .ll-actions {
   display: flex; gap: 10px; flex-wrap: wrap;
