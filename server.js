@@ -13,7 +13,8 @@ const OPENROUTER_KEY = process.env.OPENROUTER_API_KEY;
 const APP_URL = process.env.APP_URL || `http://localhost:${PORT}`;
 const APP_TITLE = process.env.APP_TITLE || "Lin-Lingua";
 
-const OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions";
+const BASE_URL = (process.env.BASE_URL || "https://api.apiyi.com/v1").replace(/\/+$/, "");
+const CHAT_URL = `${BASE_URL}/chat/completions`;
 
 app.use(express.json({ limit: "1mb" }));
 
@@ -113,7 +114,7 @@ async function callOpenRouter(messages, { json = false } = {}) {
   };
   if (json) body.response_format = { type: "json_object" };
 
-  const resp = await fetch(OPENROUTER_URL, {
+  const resp = await fetch(CHAT_URL, {
     method: "POST",
     headers: {
       "Authorization": `Bearer ${OPENROUTER_KEY}`,
@@ -226,6 +227,7 @@ app.post("/api/review", async (req, res) => {
 
 app.listen(PORT, () => {
   console.log(`Lin-Lingua running at ${APP_URL}`);
+  console.log(`Provider: ${BASE_URL}`);
   console.log(`Model: ${MODEL}`);
   if (!OPENROUTER_KEY) {
     console.warn("⚠️  OPENROUTER_API_KEY is not set. AI features will fail.");
