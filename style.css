@@ -119,6 +119,14 @@ kbd {
 .ll-stat--err .ll-stat__v { color: var(--err); }
 .ll-stat--d   .ll-stat__v { color: var(--accent); }
 
+.ll-logout {
+  color: var(--fg-2);
+  text-decoration: none;
+  padding: 2px;
+  align-items: center;
+}
+.ll-logout:hover { color: var(--err); }
+
 /* hairline progress */
 .ll-progress {
   display: inline-block;

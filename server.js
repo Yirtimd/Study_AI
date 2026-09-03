@@ -4,9 +4,11 @@
 require("dotenv").config();
 const express = require("express");
 const path = require("path");
+const crypto = require("crypto");
 const { SCENARIOS, LANG_NAMES } = require("./scenarios.js");
 
 const app = express();
+app.set("trust proxy", 1); // корректный req.secure за прокси (nginx/платформа)
 const PORT = parseInt(process.env.PORT || "3000", 10);
 const MODEL = process.env.MODEL || "google/gemini-2.0-flash-exp:free";
 const OPENROUTER_KEY = process.env.OPENROUTER_API_KEY;
@@ -17,6 +19,140 @@ const BASE_URL = (process.env.BASE_URL || "https://api.apiyi.com/v1").replace(/\
 const CHAT_URL = `${BASE_URL}/chat/completions`;
 
 app.use(express.json({ limit: "1mb" }));
+app.use(express.urlencoded({ extended: false, limit: "10kb" }));
+
+// ===== Auth =====
+const AUTH_USER = process.env.AUTH_USER || "pankov";
+const AUTH_PASS = process.env.AUTH_PASS || "Salkon";
+const SESSION_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 дней
+
+// Если AUTH_SECRET не задан — генерируется случайный (сессии перестанут
+// приниматься после рестарта сервера). Для постоянных сессий задайте в .env.
+const AUTH_SECRET = process.env.AUTH_SECRET || crypto.randomBytes(32).toString("hex");
+
+function sessionToken(user, exp) {
+  const sig = crypto.createHmac("sha256", AUTH_SECRET).update(`${user}:${exp}`).digest("hex");
+  return `${user}.${exp}.${sig}`;
+}
+
+function verifyToken(token) {
+  if (typeof token !== "string") return false;
+  const parts = token.split(".");
+  if (parts.length !== 3) return false;
+  const [user, expStr, sig] = parts;
+  const exp = parseInt(expStr, 10);
+  if (!Number.isFinite(exp) || exp < Date.now()) return false;
+  const expected = sessionToken(user, exp).split(".")[2];
+  return sig.length === expected.length && crypto.timingSafeEqual(Buffer.from(sig), Buffer.from(expected));
+}
+
+function parseCookies(req) {
+  const out = {};
+  const raw = req.headers.cookie;
+  if (!raw) return out;
+  for (const pair of raw.split(";")) {
+    const i = pair.indexOf("=");
+    if (i < 0) continue;
+    out[pair.slice(0, i).trim()] = decodeURIComponent(pair.slice(i + 1).trim());
+  }
+  return out;
+}
+
+function isAuthed(req) {
+  return verifyToken(parseCookies(req).ll_session);
+}
+
+const LOGIN_HTML = `<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Lin-Lingua — вход</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      min-height: 100vh; display: flex; align-items: center; justify-content: center;
+      background: #0e1116; color: #e6e9ef;
+      font-family: Inter, system-ui, -apple-system, sans-serif;
+    }
+    .card {
+      width: 100%; max-width: 320px; padding: 32px 28px;
+      background: #161b22; border: 1px solid #262d38; border-radius: 12px;
+    }
+    .brand { font-family: "JetBrains Mono", monospace; font-size: 18px; margin-bottom: 24px; }
+    .brand b { color: #7aa2f7; }
+    label { display: block; font-size: 12px; color: #9aa4b2; margin: 14px 0 6px; }
+    input {
+      width: 100%; padding: 10px 12px; border-radius: 8px;
+      background: #0e1116; border: 1px solid #303947; color: #e6e9ef;
+      font-size: 14px; outline: none;
+    }
+    input:focus { border-color: #7aa2f7; }
+    button {
+      width: 100%; margin-top: 22px; padding: 11px; border: 0; border-radius: 8px;
+      background: #7aa2f7; color: #0e1116; font-weight: 600; font-size: 14px;
+      cursor: pointer;
+    }
+    button:hover { background: #8db0f8; }
+    .err { margin-top: 14px; font-size: 13px; color: #f7768e; min-height: 18px; }
+  </style>
+</head>
+<body>
+  <form class="card" method="POST" action="/login">
+    <div class="brand">lin<b>-</b>lingua</div>
+    <label for="login">Логин</label>
+    <input id="login" name="login" type="text" autocomplete="username" required autofocus>
+    <label for="password">Пароль</label>
+    <input id="password" name="password" type="password" autocomplete="current-password" required>
+    <button type="submit">Войти</button>
+    <div class="err">{{ERR}}</div>
+  </form>
+</body>
+</html>`;
+
+function loginPage(err) {
+  return LOGIN_HTML.replace("{{ERR}}", err || "");
+}
+
+// Публичные маршруты — только логин; всё остальное требует сессию.
+app.use((req, res, next) => {
+  if (req.path === "/login") return next();
+  if (isAuthed(req)) return next();
+  if (req.path.startsWith("/api/")) return res.status(401).json({ error: "Unauthorized" });
+  res.redirect("/login");
+});
+
+app.get("/login", (req, res) => {
+  if (isAuthed(req)) return res.redirect("/");
+  res.type("html").send(loginPage());
+});
+
+app.post("/login", (req, res) => {
+  const { login, password } = req.body || {};
+  const okUser = login === AUTH_USER;
+  const okPass = typeof password === "string"
+    && crypto.timingSafeEqual(Buffer.from(password.padEnd(64)), Buffer.from(AUTH_PASS.padEnd(64)));
+  if (!okUser || !okPass) {
+    return res.status(401).type("html").send(loginPage("Неверный логин или пароль"));
+  }
+  const exp = Date.now() + SESSION_TTL_MS;
+  res.cookie("ll_session", sessionToken(login, exp), {
+    httpOnly: true,
+    sameSite: "lax",
+    secure: req.secure,
+    maxAge: SESSION_TTL_MS,
+    path: "/",
+  });
+  res.redirect("/");
+});
+
+app.get("/logout", (req, res) => {
+  res.clearCookie("ll_session", { path: "/" });
+  res.redirect("/login");
+});
 
 // Block direct access to server-only files (dotfiles are blocked by default).
 app.use((req, res, next) => {
